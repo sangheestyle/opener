@@ -1,14 +1,55 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
 )
 
 func main() {
+	// Open the file for reading
+	file, err := os.Open("config.txt")
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("There is no such file")
+		} else {
+			fmt.Println("Error opening file:", err)
+		}
+		return
+	}
+	defer file.Close()
+
+	var certName string
+	var certPasswd string
+
+	// Create a new scanner
+	scanner := bufio.NewScanner(file)
+
+	// Read and trim the first line
+	if scanner.Scan() {
+		certName = strings.TrimSpace(scanner.Text())
+	}
+
+	// Read and trim the second line
+	if scanner.Scan() {
+		certPasswd = strings.TrimSpace(scanner.Text())
+	}
+
+	// Check for errors
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+
+	fmt.Println("certName: ", certName)
+	fmt.Println("certPasswd: ", certPasswd)
+
 	// Set up allocator options to disable headless mode
 	allocCtx, cancel := chromedp.NewExecAllocator(
 		context.Background(),
@@ -55,14 +96,13 @@ func main() {
 	}
 
 	// Select the certificate and click
-	if err := chromedp.Run(ctx, chromedp.Click(`//*[@id="columntabledataTable"]/div[1]`), chromedp.Click(`//*[@title="인증서 명"]`)); err != nil {
+	if err := chromedp.Run(ctx, chromedp.Click(`//*[@id="columntabledataTable"]/div[1]`), chromedp.Click(fmt.Sprintf(`//*[@title="%s"]`, certName))); err != nil {
 		log.Fatal(err)
 	}
 	time.Sleep(3 * time.Second)
 
 	// Enter the password
-	passwd := "패스워드 입력"
-	if err := chromedp.Run(ctx, chromedp.SendKeys(`#input_cert_pw`, passwd)); err != nil {
+	if err := chromedp.Run(ctx, chromedp.SendKeys(`#input_cert_pw`, certPasswd)); err != nil {
 		log.Fatal(err)
 	}
 	time.Sleep(3 * time.Second)
