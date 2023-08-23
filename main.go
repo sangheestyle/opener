@@ -14,12 +14,12 @@ import (
 
 func main() {
 	// Open the file for reading
-	file, err := os.Open("config.txt")
-	if err != nil {
-		if os.IsNotExist(err) {
+	file, e := os.Open("config.txt")
+	if e != nil {
+		if os.IsNotExist(e) {
 			fmt.Println("There is no such file")
 		} else {
-			fmt.Println("Error opening file:", err)
+			fmt.Println("Error opening file:", e)
 		}
 		return
 	}
@@ -51,64 +51,41 @@ func main() {
 	fmt.Println("certPasswd: ", certPasswd)
 
 	// Set up allocator options to disable headless mode
-	allocCtx, cancel := chromedp.NewExecAllocator(
+	allocCtx, _ := chromedp.NewExecAllocator(
 		context.Background(),
 		append(chromedp.DefaultExecAllocatorOptions[:],
 			chromedp.Flag("headless", false),
 		)...,
 	)
-	defer cancel()
+	// defer cancel()
 
 	// Create a new browser context using the allocator context
-	ctx, cancel := chromedp.NewContext(allocCtx)
-	defer cancel()
+	ctx, _ := chromedp.NewContext(
+		allocCtx,
+		// chromedp.WithDebugf(log.Printf),
+	)
+	// defer cancel()
 
-	// Navigate to the website
-	if err := chromedp.Run(ctx, chromedp.Navigate(`https://www.hometax.go.kr/`)); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(3 * time.Second)
+	if err := chromedp.Run(ctx, chromedp.Tasks{
+		chromedp.Navigate(`https://www.hometax.go.kr/`),
+		chromedp.Sleep(3 * time.Second),
+		chromedp.Click(`#textbox81212912`),
+		chromedp.Sleep(2 * time.Second),
 
-	// Click the login button
-	if err := chromedp.Run(ctx, chromedp.Click(`#textbox81212912`)); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(2 * time.Second)
+		chromedp.WaitVisible(`//*[@id="anchor22"]/span`),
+		chromedp.Click(`//*[@id="anchor22"]/span`),
 
-	// Switch to the iframe
-	if err := chromedp.Run(ctx, chromedp.WaitVisible(`#txppIframe`, chromedp.ByID), chromedp.ActionFunc(func(ctx context.Context) error {
-		return chromedp.Run(ctx, chromedp.Click(`#txppIframe`))
-	})); err != nil {
-		log.Fatal(err)
-	}
+		chromedp.WaitVisible(`//*[@id="columntabledataTable"]/div[1]`),
+		chromedp.Click(`//*[@id="columntabledataTable"]/div[1]`),
+		chromedp.Click(fmt.Sprintf(`//*[@title="%s"]`, certName)),
+		chromedp.WaitVisible(`//*[@id="input_cert_pw"]`),
+		chromedp.SendKeys(`//*[@id="input_cert_pw"]`, certPasswd),
+		chromedp.Sleep(1 * time.Second),
 
-	// Click the certificate button
-	if err := chromedp.Run(ctx, chromedp.Click(`//*[@id="anchor22"]/span`)); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Switch to another iframe
-	if err := chromedp.Run(ctx, chromedp.WaitVisible(`#dscert`, chromedp.ByID), chromedp.ActionFunc(func(ctx context.Context) error {
-		return chromedp.Run(ctx, chromedp.Click(`#dscert`))
-	})); err != nil {
+		chromedp.Click(`//*[@id="btn_confirm_iframe"]/span`),
+	}); err != nil {
 		log.Fatal(err)
 	}
 
-	// Select the certificate and click
-	if err := chromedp.Run(ctx, chromedp.Click(`//*[@id="columntabledataTable"]/div[1]`), chromedp.Click(fmt.Sprintf(`//*[@title="%s"]`, certName))); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(3 * time.Second)
-
-	// Enter the password
-	if err := chromedp.Run(ctx, chromedp.SendKeys(`#input_cert_pw`, certPasswd)); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(3 * time.Second)
-
-	// Click the confirmation button
-	if err := chromedp.Run(ctx, chromedp.Click(`#btn_confirm_iframe`)); err != nil {
-		log.Fatal(err)
-	}
+	log.Println(">> Success!! Do your work!!")
 }
